@@ -16,7 +16,7 @@ class Net(nn.Module):
 
     def __init__(self):
         super(Net, self).__init__()
-        self.model = models.resnet18(weights=None)
+        self.model = models.resnet18(weights='IMAGENET1K_V1')
         # Adapt to grayscale input
         self.model.conv1 = nn.Conv2d(
             in_channels=1,
@@ -51,7 +51,7 @@ def load_data(
     dataset_name: str,
     split_name: str,
     image_size: int = 128,
-    batch_size: int = 16,
+    batch_size: int = 32,
 ):
     """Load hospital X-ray data.
 

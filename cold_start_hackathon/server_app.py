@@ -6,7 +6,7 @@ import wandb
 from flwr.app import ArrayRecord, ConfigRecord, Context
 from flwr.common import log
 from flwr.serverapp import Grid, ServerApp
-from flwr.serverapp.strategy import FedAvg
+from flwr.serverapp.strategy import FedAvg, FedProx
 
 from cold_start_hackathon.task import Net
 from cold_start_hackathon.util import (
@@ -78,7 +78,7 @@ def main(grid: Grid, context: Context) -> None:
         log(INFO, "Wandb run finished")
 
 
-class HackathonFedAvg(FedAvg):
+class HackathonFedAvg(FedProx):
     """FedAvg strategy that logs metrics and saves best model to W&B."""
 
     def __init__(self, *args, run_name=None, **kwargs):
