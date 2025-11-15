@@ -22,8 +22,8 @@ from cold_start_hackathon.util import (
 # Option 1: Set these constants directly (e.g., WANDB_API_KEY = "your_api_key_here")
 # Option 2: Leave as None and set environment variables (WANDB_API_KEY, WANDB_ENTITY, WANDB_PROJECT)
 # If all W&B config is None/unset, W&B logging will be disabled
-WANDB_API_KEY = "f5439d8b2650ef45b16d2ac72da5c51a8951a074" # Your W&B API key
-WANDB_PROJECT = "intro-example"  # Your W&B project name
+WANDB_API_KEY = "" # Your W&B API key
+WANDB_PROJECT = ""  # Your W&B project name
 #
 # ============================================================================
 
