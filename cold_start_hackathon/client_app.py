@@ -1,5 +1,5 @@
 import torch
-from flwr.app import ArrayRecord, Context, Message, MetricRecord, RecordDict
+from flwr.app import ArrayRecord, Context, Message, MetricRecord, RecordDict, ConfigRecord
 from flwr.clientapp import ClientApp
 
 from cold_start_hackathon.task import Net, load_data
@@ -13,6 +13,12 @@ app = ClientApp()
 @app.train()
 def train(msg: Message, context: Context):
     """Train the model on local data."""
+    
+    my_key = "elias"
+    if my_key in context.state.keys():
+        context.state[my_key]["round"] += 1
+    else:
+        context.state[my_key] = ConfigRecord({"round": 0})
 
     # Load the model and initialize it with the received weights
     model = Net(context.run_config["model"])
@@ -33,6 +39,7 @@ def train(msg: Message, context: Context):
         trainloader,
         context.run_config["local-epochs"],
         context.run_config["max-batches-per-round"],
+        context.state[my_key]["round"],
         msg.content["config"]["lr"],
         device,
     )

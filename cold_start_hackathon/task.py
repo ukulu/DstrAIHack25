@@ -8,17 +8,21 @@ from datasets import load_from_disk
 from torch.utils.data import DataLoader
 from torchvision import models
 from tqdm import tqdm
+import torchvision.transforms as T
 
 hospital_datasets = {}  # Cache loaded hospital datasets
 
 class ModelType(str, Enum):
     RESNET18 = "resnet18"
+    RESNET34 = "resnet34"
+    RESNET50 = "resnet50"
+    RESNET101 = "resnet101"
     EFFICIENTNET = "efficientnet"
     MOBILENET = "mobilenet"
 
 class Net(nn.Module):
 
-    def __init__(self, model_type: ModelType):
+    def __init__(self, model_type: ModelType = ModelType.RESNET18):
         super(Net, self).__init__()
         
         if model_type == ModelType.MOBILENET:
@@ -33,10 +37,37 @@ class Net(nn.Module):
             self.model.classifier = nn.Linear(in_features, 1)
             self.model.features[0][0] = nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1, bias=False)
 
-        else: 
-            self.model = models.resnet18()
+        elif model_type == ModelType.RESNET34:
+            self.model = models.resnet34(weights=None)
+            in_features = self.model.fc.in_features
+            self.model.fc = nn.Sequential(
+                nn.Dropout(p=0.2),
+                nn.Linear(in_features, 1)
+            )
+            self.model.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+            
+        elif model_type == ModelType.RESNET50:
+            self.model = models.resnet50()
             in_features = self.model.fc.in_features
             self.model.fc = nn.Linear(in_features, 1)
+            self.model.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+            
+        elif model_type == ModelType.RESNET101:
+            self.model = models.resnet101()
+            in_features = self.model.fc.in_features
+            self.model.fc = nn.Sequential(
+                nn.Dropout(p=0.2),
+                nn.Linear(in_features, 1)
+            )
+            self.model.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+            
+        else: 
+            self.model = models.resnet18(weights=None)
+            in_features = self.model.fc.in_features
+            self.model.fc = nn.Sequential(
+                nn.Dropout(p=0.2),
+                nn.Linear(in_features, 1)
+            )
             self.model.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
 
 
@@ -54,6 +85,25 @@ def collate_preprocessed(batch):
             # Keep other fields as lists
             result[key] = [item[key] for item in batch]
     return result
+
+
+def build_transforms(split_name, image_size):
+    mean = [0.502]
+    std  = [0.289]
+
+    if split_name == "train":
+        return T.Compose([
+            T.ToPILImage(),
+            T.RandomCrop(image_size, padding=4),
+            T.RandomHorizontalFlip(p=0.5),
+            T.ToTensor(),
+        ])
+    else:
+        return T.Compose([
+            T.ToPILImage(),
+            T.Resize(image_size),
+            T.ToTensor(),
+        ])
 
 
 def load_data(
@@ -85,20 +135,22 @@ def load_data(
 
     data = hospital_datasets[cache_key]
     shuffle = (split_name == "train")  # shuffle only for training splits
+    data.transform = build_transforms(split_name, image_size)
     dataloader = DataLoader(data, batch_size=batch_size, shuffle=shuffle, num_workers=4, collate_fn=collate_preprocessed)
     return dataloader
 
 
-def train(net, trainloader, epochs, max_batches, lr, device):
+
+def train(net, trainloader, epochs, max_batches, server_round, lr, device):
     net.to(device)
     criterion = torch.nn.BCEWithLogitsLoss().to(device)
     optimizer = torch.optim.Adam(net.parameters(), lr=lr)
     net.train()
     running_loss = 0.0
-    batch_count = 0
     for _ in range(epochs):
-        batch_count = 0
-        for batch in tqdm(trainloader):
+        for batch_count, batch in enumerate(tqdm(trainloader), start=1):
+            if batch_count >= max_batches:
+                break
             x = batch["x"].to(device)
             y = batch["y"].to(device)
             optimizer.zero_grad()
@@ -107,10 +159,8 @@ def train(net, trainloader, epochs, max_batches, lr, device):
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
-            batch_count += 1
-            if batch_count >= max_batches:
-                break
-    avg_loss = running_loss / (epochs * min(max_batches, len(trainloader)))
+
+    avg_loss = running_loss / (epochs * min(len(trainloader), max_batches))
     return avg_loss
 
 
