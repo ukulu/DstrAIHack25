@@ -39,6 +39,8 @@ def main(grid: Grid, context: Context) -> None:
     num_rounds: int = context.run_config["num-server-rounds"]
     lr: float = context.run_config["lr"]
     local_epochs: int = context.run_config["local-epochs"]
+    max_batches_per_round: int = context.run_config["max-batches-per-round"]
+    model: str = context.run_config["model"]
 
     # Get run name from environment variable (set by submit-job.sh). Feel free to change this.
     run_name = os.environ.get("JOB_NAME", "your_custom_run_name")
@@ -55,13 +57,15 @@ def main(grid: Grid, context: Context) -> None:
                 "num_rounds": num_rounds,
                 "learning_rate": lr,
                 "local_epochs": local_epochs,
+                "max_batches_per_round": max_batches_per_round,
+                "model": model
             }
         )
         log(INFO, "Wandb initialized with run_id: %s", wandb.run.id)
     else:
         log(INFO, "W&B disabled (credentials not provided). Set WANDB_API_KEY, WANDB_ENTITY, and WANDB_PROJECT to enable.")
 
-    global_model = Net()
+    global_model = Net(context.run_config["model"])
     arrays = ArrayRecord(global_model.state_dict())
 
     strategy = HackathonFedAvg(fraction_train=1, run_name=run_name)

@@ -1,3 +1,4 @@
+from enum import Enum
 import os
 
 import numpy as np
@@ -10,29 +11,37 @@ from tqdm import tqdm
 
 hospital_datasets = {}  # Cache loaded hospital datasets
 
+class ModelType(str, Enum):
+    RESNET18 = "resnet18"
+    EFFICIENTNET = "efficientnet"
+    MOBILENET = "mobilenet"
 
 class Net(nn.Module):
-    """Starting point: ResNet18-based model for binary chest X-ray classification."""
 
-    def __init__(self):
+    def __init__(self, model_type: ModelType):
         super(Net, self).__init__()
-        self.model = models.resnet18(weights=None)
-        # Adapt to grayscale input
-        self.model.conv1 = nn.Conv2d(
-            in_channels=1,
-            out_channels=64,
-            kernel_size=7,
-            stride=2,
-            padding=3,
-            bias=False,
-        )
-        # Binary classification head (single logit)
-        in_features = self.model.fc.in_features
-        self.model.fc = nn.Linear(in_features, 1)
+        
+        if model_type == ModelType.MOBILENET:
+            self.model = models.mobilenet_v2()
+            in_features = self.model.classifier[1].in_features
+            self.model.classifier = nn.Linear(in_features, 1)
+            self.model.features[0][0] = nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1, bias=False)
+
+        elif model_type == ModelType.EFFICIENTNET:
+            self.model = models.efficientnet_b0()
+            in_features = self.model.classifier[1].in_features
+            self.model.classifier = nn.Linear(in_features, 1)
+            self.model.features[0][0] = nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1, bias=False)
+
+        else: 
+            self.model = models.resnet18()
+            in_features = self.model.fc.in_features
+            self.model.fc = nn.Linear(in_features, 1)
+            self.model.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+
 
     def forward(self, x):
-        return self.model(x)  # No sigmoid, using BCEWithLogitsLoss
-
+        return self.model(x)
 
 def collate_preprocessed(batch):
     """Collate function for preprocessed data: Convert list of dicts to dict of batched tensors."""
@@ -80,13 +89,15 @@ def load_data(
     return dataloader
 
 
-def train(net, trainloader, epochs, lr, device):
+def train(net, trainloader, epochs, max_batches, lr, device):
     net.to(device)
     criterion = torch.nn.BCEWithLogitsLoss().to(device)
     optimizer = torch.optim.Adam(net.parameters(), lr=lr)
     net.train()
     running_loss = 0.0
+    batch_count = 0
     for _ in range(epochs):
+        batch_count = 0
         for batch in tqdm(trainloader):
             x = batch["x"].to(device)
             y = batch["y"].to(device)
@@ -96,7 +107,10 @@ def train(net, trainloader, epochs, lr, device):
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
-    avg_loss = running_loss / (len(trainloader) * epochs)
+            batch_count += 1
+            if batch_count >= max_batches:
+                break
+    avg_loss = running_loss / (epochs * min(max_batches, len(trainloader)))
     return avg_loss
 
 

@@ -15,7 +15,7 @@ def train(msg: Message, context: Context):
     """Train the model on local data."""
 
     # Load the model and initialize it with the received weights
-    model = Net()
+    model = Net(context.run_config["model"])
     model.load_state_dict(msg.content["arrays"].to_torch_state_dict())
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Training on device: {device}")
@@ -32,6 +32,7 @@ def train(msg: Message, context: Context):
         model,
         trainloader,
         context.run_config["local-epochs"],
+        context.run_config["max-batches-per-round"],
         msg.content["config"]["lr"],
         device,
     )
@@ -51,7 +52,7 @@ def train(msg: Message, context: Context):
 @app.evaluate()
 def evaluate(msg: Message, context: Context):
     """Evaluate the model on local data."""
-    model = Net()
+    model = Net(context.run_config["model"])
     model.load_state_dict(msg.content["arrays"].to_torch_state_dict())
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model.to(device)
