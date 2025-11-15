@@ -16,16 +16,16 @@ def train(msg: Message, context: Context):
 
     # Load the model and initialize it with the received weights
     model = Net()
-    model.load_state_dict(msg.content["arrays"].to_torch_state_dict())
+    model.load_state_dict(msg.content["arrays"].to_torch_state_dict()) # type: ignore
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Training on device: {device}")
     model.to(device)
 
     # Load the data
     partition_id = context.node_config["partition-id"]
-    dataset_name = f"Hospital{PARTITION_HOSPITAL_MAP[partition_id]}"
+    dataset_name = f"Hospital{PARTITION_HOSPITAL_MAP[partition_id]}" # type: ignore
     image_size = context.run_config["image-size"]
-    trainloader = load_data(dataset_name, "train", image_size=image_size)
+    trainloader = load_data(dataset_name, "train", image_size=image_size) # type: ignore
 
     # Call the training function
     train_loss = train_fn(
@@ -41,7 +41,7 @@ def train(msg: Message, context: Context):
     metrics = {
         "partition-id": context.node_config["partition-id"],
         "train_loss": train_loss,
-        "num-examples": len(trainloader.dataset),
+        "num-examples": len(trainloader.dataset), # type: ignore
     }
     metric_record = MetricRecord(metrics)
     content = RecordDict({"arrays": model_record, "metrics": metric_record})
@@ -52,14 +52,14 @@ def train(msg: Message, context: Context):
 def evaluate(msg: Message, context: Context):
     """Evaluate the model on local data."""
     model = Net()
-    model.load_state_dict(msg.content["arrays"].to_torch_state_dict())
+    model.load_state_dict(msg.content["arrays"].to_torch_state_dict()) # type: ignore
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
     partition_id = context.node_config["partition-id"]
-    dataset_name = f"Hospital{PARTITION_HOSPITAL_MAP[partition_id]}"
+    dataset_name = f"Hospital{PARTITION_HOSPITAL_MAP[partition_id]}" # type: ignore
     image_size = context.run_config["image-size"]
-    valloader = load_data(dataset_name, "eval", image_size=image_size)
+    valloader = load_data(dataset_name, "eval", image_size=image_size) # type: ignore
 
     eval_loss, tp, tn, fp, fn, probs, labels = test_fn(model, valloader, device)
 
@@ -70,7 +70,7 @@ def evaluate(msg: Message, context: Context):
         "tn": tn,
         "fp": fp,
         "fn": fn,
-        "num-examples": len(valloader.dataset),
+        "num-examples": len(valloader.dataset), # type: ignore
         "probs": probs.tolist(),  # Convert numpy array to list for MetricRecord
         "labels": labels.tolist(),  # Convert numpy array to list for MetricRecord
     })

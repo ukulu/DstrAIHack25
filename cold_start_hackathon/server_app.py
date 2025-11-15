@@ -36,9 +36,9 @@ def main(grid: Grid, context: Context) -> None:
     device = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
     log(INFO, f"Device: {device}")
 
-    num_rounds: int = context.run_config["num-server-rounds"]
-    lr: float = context.run_config["lr"]
-    local_epochs: int = context.run_config["local-epochs"]
+    num_rounds: int = context.run_config["num-server-rounds"] # type: ignore
+    lr: float = context.run_config["lr"] # type: ignore
+    local_epochs: int = context.run_config["local-epochs"] # type: ignore
 
     # Get run name from environment variable (set by submit-job.sh). Feel free to change this.
     run_name = os.environ.get("JOB_NAME", "your_custom_run_name")
@@ -57,7 +57,7 @@ def main(grid: Grid, context: Context) -> None:
                 "local_epochs": local_epochs,
             }
         )
-        log(INFO, "Wandb initialized with run_id: %s", wandb.run.id)
+        log(INFO, "Wandb initialized with run_id: %s", wandb.run.id) # type: ignore
     else:
         log(INFO, "W&B disabled (credentials not provided). Set WANDB_API_KEY, WANDB_ENTITY, and WANDB_PROJECT to enable.")
 

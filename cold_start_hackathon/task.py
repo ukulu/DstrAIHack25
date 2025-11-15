@@ -7,31 +7,39 @@ from datasets import load_from_disk
 from torch.utils.data import DataLoader
 from torchvision import models
 from tqdm import tqdm
+import torch.nn as nn
+from torchvision import models
 
 hospital_datasets = {}  # Cache loaded hospital datasets
 
 
 class Net(nn.Module):
-    """Starting point: ResNet18-based model for binary chest X-ray classification."""
+    """
+    Upgraded: Vision Transformer (ViT-B/16) model for binary chest X-ray classification.
+    """
 
     def __init__(self):
         super(Net, self).__init__()
-        self.model = models.resnet18(weights='IMAGENET1K_V1')
-        # Adapt to grayscale input
-        self.model.conv1 = nn.Conv2d(
-            in_channels=1,
-            out_channels=64,
-            kernel_size=7,
-            stride=2,
-            padding=3,
-            bias=False,
-        )
-        # Binary classification head (single logit)
-        in_features = self.model.fc.in_features
-        self.model.fc = nn.Linear(in_features, 1)
+        # Quantitative Upgrade: Use Vision Transformer Base (ViT-B/16)
+        # We load pretrained weights for better convergence.
+        self.model = models.vit_b_16(weights=models.ViT_B_16_Weights.IMAGENET1K_V1)
+        
+        # 1. Adapt to grayscale input (1 channel instead of 3)
+        # The first layer in ViT is the patch embedding layer. We replace its weights.
+        # Original: (3, patch_h, patch_w) -> New: (1, patch_h, patch_w)
+        original_weight = self.model.conv_proj.weight.data
+        new_weight = original_weight.mean(dim=1, keepdim=True) # type: ignore # Average over R, G, B channels
+        self.model.conv_proj.in_channels = 1 # type: ignore
+        self.model.conv_proj.weight.data = new_weight
+
+        # 2. Binary classification head (single logit)
+        # The ViT uses 'heads.head' for the final linear layer.
+        in_features = self.model.heads.head.in_features # type: ignore
+        self.model.heads.head = nn.Linear(in_features, 1) # type: ignore
 
     def forward(self, x):
-        return self.model(x)  # No sigmoid, using BCEWithLogitsLoss
+        # The input x is expected to be [B, 1, H, W]. ViT handles the patching and embedding.
+        return self.model(x) # No sigmoid, still using BCEWithLogitsLoss
 
 
 def collate_preprocessed(batch):
@@ -51,7 +59,7 @@ def load_data(
     dataset_name: str,
     split_name: str,
     image_size: int = 128,
-    batch_size: int = 32,
+    batch_size: int = 256,
 ):
     """Load hospital X-ray data.
 
